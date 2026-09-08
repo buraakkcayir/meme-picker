@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Meme Picker
+Comment=Fast searchable meme and reaction image picker with cloud sync
+Exec=python3 %h/meme-picker/meme-picker.py
+Icon=meme-picker
+Terminal=false
+Type=Application
+Categories=Utility;Graphics;
+Keywords=meme;picker;reaction;image;
