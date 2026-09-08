@@ -32,7 +32,7 @@ if OLD_MEME_DIR.exists() and not LOCAL_MEME_DIR.exists():
 LOCAL_MEME_DIR.mkdir(parents=True, exist_ok=True)
 
 SUPPORTED_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".webp"}
-ICON_PATH = HOME / ".local" / "share" / "icons" / "meme-picker.svg"
+ICON_PATH = Path(__file__).resolve().parent / "meme-picker.svg"
 
 SVG_CONTENT = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
   <circle cx="64" cy="64" r="48" fill="none" stroke="#eff0f1" stroke-width="8" stroke-linecap="round"/>
