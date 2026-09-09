@@ -14,3 +14,27 @@ jobs:
           python-version: "3.x"
       - name: Check Python syntax
         run: python -m py_compile meme-picker.py
+      - name: Check desktop entry
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          desktop = Path("meme-picker.desktop").read_text(encoding="utf-8").splitlines()
+          values = dict(
+              line.split("=", 1)
+              for line in desktop
+              if "=" in line and not line.startswith("#")
+          )
+
+          required = {
+              "Name": "Meme Picker",
+              "Type": "Application",
+              "Exec": "python3 /path/to/project/meme-picker.py",
+          }
+          for key, expected in required.items():
+              actual = values.get(key)
+              if actual != expected:
+                  raise SystemExit(
+                      f"{key} must be {expected!r}, got {actual!r}"
+                  )
+          PY

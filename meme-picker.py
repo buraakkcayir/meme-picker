@@ -26,7 +26,7 @@ DEFAULT_PICTURES_DIR = Path(
 )
 DEFAULT_MEME_DIR = DEFAULT_PICTURES_DIR / "memes"
 
-SUPPORTED_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".webp"}
+SUPPORTED_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".heic", ".heif"}
 ICON_PATH = Path(__file__).resolve().parent / "meme-picker.svg"
 
 def get_app_icon() -> QIcon:
