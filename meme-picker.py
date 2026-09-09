@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import sys
-import os
 import shutil
 import subprocess
 import unicodedata
@@ -9,42 +8,28 @@ from datetime import datetime
 
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, QPushButton,
-    QListWidget, QListWidgetItem, QSystemTrayIcon, QMenu, QLabel, QSlider, QMessageBox
+    QListWidget, QListWidgetItem, QSystemTrayIcon, QMenu, QLabel, QSlider, QMessageBox,
+    QFileDialog
 )
-from PyQt6.QtCore import Qt, QSize, QThread, pyqtSignal, QTimer, QBuffer, QIODevice, QUrl, QSettings
+from PyQt6.QtCore import (
+    Qt, QSize, QThread, pyqtSignal, QTimer, QBuffer, QIODevice, QUrl, QSettings,
+    QStandardPaths
+)
 from PyQt6.QtGui import (
     QIcon, QPixmap, QImage, QImageReader, QDesktopServices
 )
 
-# Dynamic Pictures Directory (Supports English and Turkish locales)
 HOME = Path.home()
-PICTURES_DIR = HOME / "Pictures"
-if not PICTURES_DIR.exists() and (HOME / "Resimler").exists():
-    PICTURES_DIR = HOME / "Resimler"
-
-LOCAL_MEME_DIR = PICTURES_DIR / "memes"
-OLD_MEME_DIR = HOME / "Memes"
-
-if OLD_MEME_DIR.exists() and not LOCAL_MEME_DIR.exists():
-    LOCAL_MEME_DIR.parent.mkdir(parents=True, exist_ok=True)
-    shutil.move(str(OLD_MEME_DIR), str(LOCAL_MEME_DIR))
-
-LOCAL_MEME_DIR.mkdir(parents=True, exist_ok=True)
+DEFAULT_PICTURES_DIR = Path(
+    QStandardPaths.writableLocation(QStandardPaths.StandardLocation.PicturesLocation)
+    or HOME / "Pictures"
+)
+DEFAULT_MEME_DIR = DEFAULT_PICTURES_DIR / "memes"
 
 SUPPORTED_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".webp"}
 ICON_PATH = Path(__file__).resolve().parent / "meme-picker.svg"
 
-SVG_CONTENT = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
-  <circle cx="64" cy="64" r="48" fill="none" stroke="#eff0f1" stroke-width="8" stroke-linecap="round"/>
-  <ellipse cx="46" cy="48" rx="5.5" ry="7.5" fill="#eff0f1"/>
-  <ellipse cx="82" cy="48" rx="5.5" ry="7.5" fill="#eff0f1"/>
-  <path d="M 40 74 L 88 74 C 88 98 40 98 40 74 Z" fill="none" stroke="#eff0f1" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
-</svg>"""
-
 def get_app_icon() -> QIcon:
-    if not ICON_PATH.exists():
-        ICON_PATH.parent.mkdir(parents=True, exist_ok=True)
-        ICON_PATH.write_text(SVG_CONTENT)
     return QIcon(str(ICON_PATH))
 
 def normalize_text(text: str) -> str:
@@ -57,7 +42,6 @@ def normalize_text(text: str) -> str:
         "Ç": "c", "ç": "c"
     })
     cleaned = text.translate(tr_map).lower()
-    # Normalize unicode accents
     return "".join(c for c in unicodedata.normalize("NFD", cleaned) if unicodedata.category(c) != "Mn")
 
 def format_to_3_lines(text: str, chars_per_line: int = 18) -> str:
@@ -102,6 +86,10 @@ def format_to_3_lines(text: str, chars_per_line: int = 18) -> str:
 class BiSyncWorker(QThread):
     sync_finished = pyqtSignal(bool, str)
 
+    def __init__(self, local_meme_dir):
+        super().__init__()
+        self.local_meme_dir = local_meme_dir
+
     def run(self):
         if not shutil.which("rclone"):
             self.sync_finished.emit(False, "rclone missing")
@@ -110,7 +98,7 @@ class BiSyncWorker(QThread):
         try:
             cmd = [
                 "rclone", "bisync",
-                "icloud:memes", str(LOCAL_MEME_DIR),
+                "icloud:memes", str(self.local_meme_dir),
                 "--resilient",
                 "--conflict-resolve", "newer",
                 "--create-empty-src-dirs"
@@ -174,6 +162,9 @@ class MemePicker(QWidget):
         self.auth_watcher = None
         self.last_sync_time = ""
         self.last_sync_msg = "Syncing..."
+        saved_dir = self.settings.value("meme_dir", str(DEFAULT_MEME_DIR))
+        self.local_meme_dir = Path(saved_dir).expanduser()
+        self.local_meme_dir.mkdir(parents=True, exist_ok=True)
 
         self.view_mode = self.settings.value("view_mode", "grid")
 
@@ -241,7 +232,8 @@ class MemePicker(QWidget):
             }
             QPushButton:hover { background: rgba(255, 255, 255, 0.16); }
         """)
-        self.folder_btn.clicked.connect(self.open_meme_folder)
+        self.folder_btn.setToolTip("Choose Meme Folder")
+        self.folder_btn.clicked.connect(self.choose_meme_folder)
         top_layout.addWidget(self.folder_btn)
 
         self.refresh_btn = QPushButton()
@@ -384,6 +376,8 @@ class MemePicker(QWidget):
         auth_action.triggered.connect(self.reconnect_session)
         open_action = menu.addAction("📁 Open Folder")
         open_action.triggered.connect(self.open_meme_folder)
+        choose_action = menu.addAction("🗂 Choose Meme Folder")
+        choose_action.triggered.connect(self.choose_meme_folder)
         exit_action = menu.addAction("❌ Quit")
         exit_action.triggered.connect(QApplication.instance().quit)
         self.tray.setContextMenu(menu)
@@ -558,8 +552,23 @@ class MemePicker(QWidget):
             QDesktopServices.openUrl(QUrl.fromLocalFile(str(file_path.parent)))
 
     def open_meme_folder(self):
-        LOCAL_MEME_DIR.mkdir(parents=True, exist_ok=True)
-        QDesktopServices.openUrl(QUrl.fromLocalFile(str(LOCAL_MEME_DIR)))
+        self.local_meme_dir.mkdir(parents=True, exist_ok=True)
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(self.local_meme_dir)))
+
+    def choose_meme_folder(self):
+        selected_dir = QFileDialog.getExistingDirectory(
+            self,
+            "Choose Meme Folder",
+            str(self.local_meme_dir)
+        )
+        if not selected_dir:
+            return
+
+        self.local_meme_dir = Path(selected_dir)
+        self.settings.setValue("meme_dir", str(self.local_meme_dir))
+        self.load_memes()
+        self.apply_view_mode()
+        self.start_sync()
 
     def start_sync(self):
         if self.sync_worker and self.sync_worker.isRunning():
@@ -567,13 +576,13 @@ class MemePicker(QWidget):
         self.last_sync_msg = "Syncing..."
         self.update_status_text()
         self.refresh_btn.setEnabled(False)
-        self.sync_worker = BiSyncWorker()
+        self.sync_worker = BiSyncWorker(self.local_meme_dir)
         self.sync_worker.sync_finished.connect(self.on_sync_finished)
         self.sync_worker.start()
 
     def on_sync_finished(self, success, msg):
         self.refresh_btn.setEnabled(True)
-        self.last_sync_time = datetime.now().strftime("%d.%m.%Y %H:%M")
+        self.last_sync_time = datetime.now().strftime("%Y-%m-%d %H:%M")
         self.last_sync_msg = msg
         self.load_memes()
         self.apply_view_mode()
@@ -587,9 +596,9 @@ class MemePicker(QWidget):
         self.list_widget.clear()
         self.item_map.clear()
 
-        LOCAL_MEME_DIR.mkdir(parents=True, exist_ok=True)
+        self.local_meme_dir.mkdir(parents=True, exist_ok=True)
 
-        files = [p for p in LOCAL_MEME_DIR.iterdir() if p.suffix.lower() in SUPPORTED_EXTS]
+        files = [p for p in self.local_meme_dir.iterdir() if p.suffix.lower() in SUPPORTED_EXTS]
         default_icon = get_app_icon()
 
         for p in files:
