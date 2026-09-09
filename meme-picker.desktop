@@ -1,7 +1,7 @@
 [Desktop Entry]
 Name=Meme Picker
 Comment=Fast searchable meme and reaction image picker with cloud sync
-Exec=python3 %h/meme-picker/meme-picker.py
+Exec=python3 /path/to/project/meme-picker.py
 Icon=meme-picker
 Terminal=false
 Type=Application
