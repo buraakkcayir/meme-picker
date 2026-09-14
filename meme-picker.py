@@ -117,8 +117,7 @@ class BiSyncWorker(QThread):
             if proc.returncode == 0:
                 self.sync_finished.emit(True, "Synced")
             else:
-                err_snippet = strip_ansi(proc.stderr.strip().splitlines()[-1]) if proc.stderr else "Sync Error"
-                self.sync_finished.emit(False, err_snippet[:30])
+                self.sync_finished.emit(False, "Sync failed")
         except Exception as e:
             self.sync_finished.emit(False, str(e)[:30])
 
