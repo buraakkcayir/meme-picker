@@ -14,7 +14,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import (
     Qt, QSize, QThread, pyqtSignal, QTimer, QBuffer, QIODevice, QUrl, QSettings,
-    QStandardPaths
+    QStandardPaths, QLockFile
 )
 from PyQt6.QtGui import (
     QIcon, QPixmap, QImage, QImageReader, QDesktopServices
@@ -692,8 +692,21 @@ def main():
     app.setDesktopFileName("meme-picker")
     app.setQuitOnLastWindowClosed(False)
 
+    lock_path = Path(
+        QStandardPaths.writableLocation(
+            QStandardPaths.StandardLocation.AppLocalDataLocation
+        )
+    ) / "meme-picker.lock"
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    instance_lock = QLockFile(str(lock_path))
+    if not instance_lock.tryLock(0):
+        print("Meme Picker is already running.", file=sys.stderr)
+        return 1
+
     picker = MemePicker()
-    sys.exit(app.exec())
+    exit_code = app.exec()
+    instance_lock.unlock()
+    sys.exit(exit_code)
 
 if __name__ == "__main__":
     main()

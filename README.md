@@ -30,6 +30,7 @@ Meme Picker manages image files in one local folder and optionally synchronizes 
 | Dolphin or another file manager | Optional “Show in File Manager” integration |
 
 The application is primarily intended for Linux desktop environments. It is started as a regular Python process and remains available from the system tray; installing a desktop application launcher is optional. Closing or hiding the window does not exit the application. Wayland is recommended for native clipboard integration; Qt may still provide clipboard support on other display systems, including X11.
+Only one Meme Picker instance can run at a time. A second launch exits without starting another sync worker or tray icon.
 
 On Arch Linux or CachyOS:
 
