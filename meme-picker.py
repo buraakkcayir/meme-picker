@@ -701,7 +701,7 @@ def main():
     instance_lock = QLockFile(str(lock_path))
     if not instance_lock.tryLock(0):
         print("Meme Picker is already running.", file=sys.stderr)
-        return 1
+        raise SystemExit(1)
 
     picker = MemePicker()
     exit_code = app.exec()
