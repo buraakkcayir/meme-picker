@@ -30,6 +30,7 @@ Meme Picker manages image files in one local folder and optionally synchronizes 
 | Dolphin or another file manager | Optional “Show in File Manager” integration |
 
 The application is primarily intended for Linux desktop environments. It is started as a regular Python process and remains available from the system tray; installing a desktop application launcher is optional. Closing or hiding the window does not exit the application. Wayland is recommended for native clipboard integration; Qt may still provide clipboard support on other display systems, including X11.
+Only one Meme Picker instance can run at a time. A second launch exits without starting another sync worker or tray icon.
 
 On Arch Linux or CachyOS:
 
@@ -95,7 +96,15 @@ sed "s|/path/to/project|$PROJECT_DIR|g" \
   meme-picker.desktop > ~/.local/share/applications/meme-picker.desktop
 ```
 
-If the repository is moved later, reinstall the desktop entry with the new path.
+The generated desktop entry uses the repository SVG as its icon and declares
+`StartupWMClass=meme-picker` so KDE can keep Meme Picker separate from other
+Python GUI applications. If the repository is moved later, reinstall the
+desktop entry with the new path. On systems that provide it, refresh the
+desktop-entry cache with:
+
+```bash
+update-desktop-database ~/.local/share/applications
+```
 
 KDE Autostart is a separate optional configuration. It is not required for normal use and is not installed by this repository.
 

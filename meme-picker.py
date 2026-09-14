@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import sys
+import re
 import shutil
 import subprocess
 import unicodedata
@@ -13,7 +14,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import (
     Qt, QSize, QThread, pyqtSignal, QTimer, QBuffer, QIODevice, QUrl, QSettings,
-    QStandardPaths
+    QStandardPaths, QLockFile
 )
 from PyQt6.QtGui import (
     QIcon, QPixmap, QImage, QImageReader, QDesktopServices
@@ -28,6 +29,7 @@ DEFAULT_MEME_DIR = DEFAULT_PICTURES_DIR / "memes"
 
 SUPPORTED_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".heic", ".heif"}
 ICON_PATH = Path(__file__).resolve().parent / "meme-picker.svg"
+ANSI_ESCAPE_RE = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
 
 def get_app_icon() -> QIcon:
     return QIcon(str(ICON_PATH))
@@ -43,6 +45,9 @@ def normalize_text(text: str) -> str:
     })
     cleaned = text.translate(tr_map).lower()
     return "".join(c for c in unicodedata.normalize("NFD", cleaned) if unicodedata.category(c) != "Mn")
+
+def strip_ansi(text: str) -> str:
+    return ANSI_ESCAPE_RE.sub("", text)
 
 def format_to_3_lines(text: str, chars_per_line: int = 18) -> str:
     words = text.strip().split()
@@ -112,8 +117,7 @@ class BiSyncWorker(QThread):
             if proc.returncode == 0:
                 self.sync_finished.emit(True, "Synced")
             else:
-                err_snippet = proc.stderr.strip().splitlines()[-1] if proc.stderr else "Sync Error"
-                self.sync_finished.emit(False, err_snippet[:30])
+                self.sync_finished.emit(False, "Sync failed")
         except Exception as e:
             self.sync_finished.emit(False, str(e)[:30])
 
@@ -688,8 +692,21 @@ def main():
     app.setDesktopFileName("meme-picker")
     app.setQuitOnLastWindowClosed(False)
 
+    lock_path = Path(
+        QStandardPaths.writableLocation(
+            QStandardPaths.StandardLocation.AppLocalDataLocation
+        )
+    ) / "meme-picker.lock"
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    instance_lock = QLockFile(str(lock_path))
+    if not instance_lock.tryLock(0):
+        print("Meme Picker is already running.", file=sys.stderr)
+        raise SystemExit(1)
+
     picker = MemePicker()
-    sys.exit(app.exec())
+    exit_code = app.exec()
+    instance_lock.unlock()
+    sys.exit(exit_code)
 
 if __name__ == "__main__":
     main()
