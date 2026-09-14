@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import sys
+import re
 import shutil
 import subprocess
 import unicodedata
@@ -28,6 +29,7 @@ DEFAULT_MEME_DIR = DEFAULT_PICTURES_DIR / "memes"
 
 SUPPORTED_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".heic", ".heif"}
 ICON_PATH = Path(__file__).resolve().parent / "meme-picker.svg"
+ANSI_ESCAPE_RE = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
 
 def get_app_icon() -> QIcon:
     return QIcon(str(ICON_PATH))
@@ -43,6 +45,9 @@ def normalize_text(text: str) -> str:
     })
     cleaned = text.translate(tr_map).lower()
     return "".join(c for c in unicodedata.normalize("NFD", cleaned) if unicodedata.category(c) != "Mn")
+
+def strip_ansi(text: str) -> str:
+    return ANSI_ESCAPE_RE.sub("", text)
 
 def format_to_3_lines(text: str, chars_per_line: int = 18) -> str:
     words = text.strip().split()
@@ -112,7 +117,7 @@ class BiSyncWorker(QThread):
             if proc.returncode == 0:
                 self.sync_finished.emit(True, "Synced")
             else:
-                err_snippet = proc.stderr.strip().splitlines()[-1] if proc.stderr else "Sync Error"
+                err_snippet = strip_ansi(proc.stderr.strip().splitlines()[-1]) if proc.stderr else "Sync Error"
                 self.sync_finished.emit(False, err_snippet[:30])
         except Exception as e:
             self.sync_finished.emit(False, str(e)[:30])
