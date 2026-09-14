@@ -96,7 +96,15 @@ sed "s|/path/to/project|$PROJECT_DIR|g" \
   meme-picker.desktop > ~/.local/share/applications/meme-picker.desktop
 ```
 
-If the repository is moved later, reinstall the desktop entry with the new path.
+The generated desktop entry uses the repository SVG as its icon and declares
+`StartupWMClass=meme-picker` so KDE can keep Meme Picker separate from other
+Python GUI applications. If the repository is moved later, reinstall the
+desktop entry with the new path. On systems that provide it, refresh the
+desktop-entry cache with:
+
+```bash
+update-desktop-database ~/.local/share/applications
+```
 
 KDE Autostart is a separate optional configuration. It is not required for normal use and is not installed by this repository.
 
